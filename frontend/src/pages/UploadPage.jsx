@@ -67,14 +67,21 @@ export default function UploadPage() {
   }
 
   const canProceed = () => {
-    if (currentStep === 1) {
-      return formData.businessName && formData.industry
-    }
-    if (currentStep === 2) {
-      return selectedFile && selectedFile.type !== 'application/pdf'
-    }
-    return false
+  if (currentStep === 1) {
+    return formData.businessName?.trim() !== "" && formData.industry !== ""
   }
+
+  if (currentStep === 2) {
+    return selectedFile !== null
+  }
+
+  if (currentStep === 3) {
+    return true
+  }
+
+  return false
+}
+
 
   const handleSubmit = async () => {
     if (!canProceed()) return
