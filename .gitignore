@@ -1,0 +1,14 @@
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Python
+backend/.env
+backend/__pycache__/
+backend/**/*.pyc
+
+# OS junk
+.DS_Store
+Thumbs.db
