@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.routes import health, business, upload, analyze, insights, dashboard
+from app.routes import health, business, upload, analyze, insights, dashboard, forecast, report
 
 app = FastAPI(
     title="Financial Health Assessment API",
@@ -26,6 +26,8 @@ app.include_router(upload.router)
 app.include_router(analyze.router)
 app.include_router(insights.router)
 app.include_router(dashboard.router)
+app.include_router(forecast.router)
+app.include_router(report.router)
 
 
 @app.exception_handler(ValueError)

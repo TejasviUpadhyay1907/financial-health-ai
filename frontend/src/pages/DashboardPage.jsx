@@ -1,12 +1,31 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import api from '../api'
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  AlertTriangle, 
+  CheckCircle, 
+  FileText,
+  Brain,
+  Download,
+  ArrowUpRight,
+  ArrowDownRight
+} from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
-function DashboardPage() {
+import Navbar from '../components/Navbar'
+import Forecast from '../components/Forecast'
+import { Button } from '../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Progress } from '../components/ui/progress'
+import { api } from '../lib/api'
+import { storage } from '../lib/storage'
+
+export default function DashboardPage() {
   const { businessId } = useParams()
   const navigate = useNavigate()
   
+  const [language, setLanguage] = useState(storage.getLanguage())
   const [dashboardData, setDashboardData] = useState(null)
   const [insights, setInsights] = useState('')
   const [insightLanguage, setInsightLanguage] = useState('en')
@@ -28,7 +47,7 @@ function DashboardPage() {
       try {
         const insightsData = await api.getInsights(businessId)
         setInsights(insightsData.insights_text)
-        setInsightLanguage(insightsData.lang)
+        setInsightLanguage(insightsData.lang || 'en')
       } catch (err) {
         // Insights might not exist yet
         setInsights('')
@@ -38,6 +57,11 @@ function DashboardPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleLanguageChange = (newLang) => {
+    setLanguage(newLang)
+    storage.setLanguage(newLang)
   }
 
   const generateInsights = async () => {
@@ -52,20 +76,43 @@ function DashboardPage() {
     }
   }
 
+  const downloadPDFReport = () => {
+    if (!businessId) {
+      setError('Business ID is required for PDF report')
+      return
+    }
+
+    try {
+      const reportUrl = api.getReportUrl(businessId, language)
+      window.open(reportUrl, '_blank')
+    } catch (err) {
+      setError(err.message || 'Failed to generate PDF report')
+    }
+  }
+
   const getRiskLevelColor = (riskLevel) => {
     switch (riskLevel?.toLowerCase()) {
-      case 'low': return 'risk-low'
-      case 'medium': return 'risk-medium'
-      case 'high': return 'risk-high'
-      default: return ''
+      case 'low': return 'text-green-600'
+      case 'medium': return 'text-yellow-600'
+      case 'high': return 'text-red-600'
+      default: return 'text-gray-600'
+    }
+  }
+
+  const getRiskLevelBg = (riskLevel) => {
+    switch (riskLevel?.toLowerCase()) {
+      case 'low': return 'bg-green-100 text-green-800 border-green-200'
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'high': return 'bg-red-100 text-red-800 border-red-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
 
   const getScoreColor = (score) => {
-    if (score >= 80) return 'score-excellent'
-    if (score >= 60) return 'score-good'
-    if (score >= 40) return 'score-fair'
-    return 'score-poor'
+    if (score >= 80) return 'text-green-600'
+    if (score >= 60) return 'text-lime-600'
+    if (score >= 40) return 'text-yellow-600'
+    return 'text-red-600'
   }
 
   const prepareChartData = () => {
@@ -75,196 +122,383 @@ function DashboardPage() {
       month: new Date(item.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
       revenue: item.revenue,
       expense: item.operating_expense,
-      profitProxy: item.profit_proxy
+      profit: item.profit_proxy
+    }))
+  }
+
+  const prepareBarChartData = () => {
+    if (!dashboardData?.metrics_json?.monthly_data) return []
+    
+    return dashboardData.metrics_json.monthly_data.map(item => ({
+      month: new Date(item.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      profit: item.profit_proxy
     }))
   }
 
   if (loading) {
     return (
-      <div className="container">
-        <div className="card">
-          <div className="loading" style={{ margin: '0 auto' }}></div>
-          <p>Loading dashboard...</p>
-        </div>
+      <div className="min-h-screen bg-background">
+        <Navbar currentLanguage={language} onLanguageChange={handleLanguageChange} />
+        <main className="container mx-auto py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </main>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="container">
-        <div className="card">
-          <div className="error">{error}</div>
-          <button className="btn btn-secondary mt-4" onClick={() => navigate('/')}>
-            Back to Upload
-          </button>
-        </div>
+      <div className="min-h-screen bg-background">
+        <Navbar currentLanguage={language} onLanguageChange={handleLanguageChange} />
+        <main className="container mx-auto py-8">
+          <Card className="max-w-2xl mx-auto border-destructive">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
+                <h2 className="text-xl font-semibold text-destructive">Error Loading Dashboard</h2>
+                <p className="text-muted-foreground">{error}</p>
+                <Button onClick={() => navigate('/')} className="mt-4">
+                  Back to Upload
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
       </div>
     )
   }
 
   if (!dashboardData) {
     return (
-      <div className="container">
-        <div className="card">
-          <h2>No Data Available</h2>
-          <p>Please upload and analyze your financial data first.</p>
-          <button className="btn mt-4" onClick={() => navigate('/')}>
-            Upload Data
-          </button>
-        </div>
+      <div className="min-h-screen bg-background">
+        <Navbar currentLanguage={language} onLanguageChange={handleLanguageChange} />
+        <main className="container mx-auto py-8">
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h2 className="text-xl font-semibold">No Data Available</h2>
+                <p className="text-muted-foreground">Please upload and analyze your financial data first.</p>
+                <Button onClick={() => navigate('/')} className="mt-4">
+                  Upload Data
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
       </div>
     )
   }
 
   const chartData = prepareChartData()
+  const barChartData = prepareBarChartData()
+  const metrics = dashboardData.metrics_json || {}
 
   return (
-    <div className="container">
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h1>Financial Health Dashboard</h1>
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => navigate(`/report/${businessId}`)}
-          >
-            View Report
-          </button>
-        </div>
-
-        {/* Health Score and Risk Level */}
-        <div className="grid grid-2" style={{ marginBottom: '32px' }}>
-          <div className="card" style={{ textAlign: 'center' }}>
-            <h3>Health Score</h3>
-            <div className={`getScoreColor(dashboardData.health_score)}`} style={{ fontSize: '48px', fontWeight: 'bold', margin: '16px 0' }}>
-              {dashboardData.health_score}/100
+    <div className="min-h-screen bg-background">
+      <Navbar currentLanguage={language} onLanguageChange={handleLanguageChange} />
+      
+      <main className="container mx-auto py-8">
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Financial Health Dashboard</h1>
+              <p className="text-muted-foreground">
+                Comprehensive analysis of your business financial health
+              </p>
             </div>
-            <div className={getRiskLevelColor(dashboardData.risk_level)} style={{ fontSize: '20px', fontWeight: '500' }}>
-              {dashboardData.risk_level?.toUpperCase()} RISK
-            </div>
+            <Button onClick={() => navigate(`/report/${businessId}`)}>
+              <FileText className="mr-2 h-4 w-4" />
+              View Report
+            </Button>
           </div>
 
-          <div className="card">
-            <h3>Key Metrics</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
-              <div>
-                <strong>Revenue:</strong> ${dashboardData.metrics_json?.revenue?.toLocaleString() || 'N/A'}
-              </div>
-              <div>
-                <strong>Expense:</strong> ${dashboardData.metrics_json?.expense?.toLocaleString() || 'N/A'}
-              </div>
-              <div>
-                <strong>Profit:</strong> ${dashboardData.metrics_json?.profit_proxy?.toLocaleString() || 'N/A'}
-              </div>
-              <div>
-                <strong>Net Margin:</strong> {dashboardData.metrics_json?.net_margin_percent?.toFixed(1) || 'N/A'}%
-              </div>
-              <div>
-                <strong>EMI Burden:</strong> {dashboardData.metrics_json?.emi_burden_percent?.toFixed(1) || 'N/A'}%
-              </div>
-              <div>
-                <strong>Trend:</strong> {dashboardData.metrics_json?.revenue_trend_percent?.toFixed(1) || 'N/A'}%
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Score Breakdown */}
-        <div className="card">
-          <h3>Score Breakdown</h3>
-          <div className="grid grid-3">
-            {dashboardData.score_breakdown && Object.entries(dashboardData.score_breakdown).map(([key, value]) => (
-              <div key={key} className="card" style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                  {key.replace(/_/g, ' ').toUpperCase()}
+          {/* Hero Card - Health Score */}
+          <Card className="border-l-4 border-l-primary">
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+                <div className="text-center">
+                  <div className="text-6xl font-bold mb-2">
+                    <span className={getScoreColor(dashboardData.health_score)}>
+                      {dashboardData.health_score}
+                    </span>
+                    <span className="text-2xl text-muted-foreground">/100</span>
+                  </div>
+                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getRiskLevelBg(dashboardData.risk_level)}`}>
+                    {dashboardData.risk_level?.toUpperCase()} RISK
+                  </div>
                 </div>
-                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
-                  {Math.round(value)}
+
+                <div className="md:col-span-2 space-y-4">
+                  <h3 className="text-lg font-semibold mb-4">Score Breakdown</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {dashboardData.score_breakdown && Object.entries(dashboardData.score_breakdown).map(([key, value]) => (
+                      <div key={key} className="text-center p-3 border rounded-lg">
+                        <div className="text-xs text-muted-foreground mb-1">
+                          {key.replace(/_/g, ' ').toUpperCase()}
+                        </div>
+                        <div className="text-lg font-bold">
+                          {Math.round(value)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </CardContent>
+          </Card>
 
-        {/* Charts */}
-        {chartData.length > 0 && (
-          <div className="card">
-            <h3>Financial Trends</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#2563eb" name="Revenue" />
-                <Line type="monotone" dataKey="expense" stroke="#dc2626" name="Expense" />
-                <Line type="monotone" dataKey="profitProxy" stroke="#16a34a" name="Profit Proxy" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                    <p className="text-2xl font-bold">
+                      ${metrics.revenue?.toLocaleString() || 'N/A'}
+                    </p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Risk Flags */}
-        {dashboardData.risk_flags && dashboardData.risk_flags.length > 0 && (
-          <div className="card">
-            <h3>Risk Flags</h3>
-            <ul style={{ textAlign: 'left', color: '#dc2626' }}>
-              {dashboardData.risk_flags.map((flag, index) => (
-                <li key={index}>{flag}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Expenses</p>
+                    <p className="text-2xl font-bold">
+                      ${metrics.expense?.toLocaleString() || 'N/A'}
+                    </p>
+                  </div>
+                  <TrendingDown className="h-8 w-8 text-red-600" />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* AI Insights */}
-        <div className="card">
-          <h3>AI Insights</h3>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center' }}>
-            <select
-              value={insightLanguage}
-              onChange={(e) => setInsightLanguage(e.target.value)}
-              style={{ padding: '8px', borderRadius: '4px', border: '1px solid #d1d5db' }}
-            >
-              <option value="en">English</option>
-              <option value="hi">हिंदी</option>
-            </select>
-            <button 
-              className="btn" 
-              onClick={generateInsights}
-              disabled={insightLoading}
-            >
-              {insightLoading ? (
-                <>
-                  <div className="loading" style={{ marginRight: '8px', display: 'inline-block' }}></div>
-                  Generating...
-                </>
-              ) : (
-                'Generate Insights'
-              )}
-            </button>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Net Profit</p>
+                    <p className="text-2xl font-bold">
+                      ${metrics.profit_proxy?.toLocaleString() || 'N/A'}
+                    </p>
+                  </div>
+                  <div className={`h-8 w-8 ${metrics.profit_proxy >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {metrics.profit_proxy >= 0 ? <TrendingUp /> : <TrendingDown />}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Net Margin</p>
+                  <p className="text-2xl font-bold">
+                    {metrics.net_margin_percent?.toFixed(1) || 'N/A'}%
+                  </p>
+                  <Progress 
+                    value={metrics.net_margin_percent || 0} 
+                    className="mt-2" 
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">EMI Burden</p>
+                  <p className="text-2xl font-bold">
+                    {metrics.emi_burden_percent?.toFixed(1) || 'N/A'}%
+                  </p>
+                  <Progress 
+                    value={Math.min(metrics.emi_burden_percent || 0, 100)} 
+                    className="mt-2" 
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Revenue Trend</p>
+                  <p className="text-2xl font-bold flex items-center">
+                    {metrics.revenue_trend_percent?.toFixed(1) || 'N/A'}%
+                    {metrics.revenue_trend_percent >= 0 ? (
+                      <ArrowUpRight className="ml-2 h-5 w-5 text-green-600" />
+                    ) : (
+                      <ArrowDownRight className="ml-2 h-5 w-5 text-red-600" />
+                    )}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          
-          {insights ? (
-            <div style={{ 
-              textAlign: 'left', 
-              padding: '16px', 
-              backgroundColor: '#f8fafc', 
-              borderRadius: '6px',
-              whiteSpace: 'pre-line',
-              lineHeight: '1.6'
-            }}>
-              {insights}
-            </div>
-          ) : (
-            <p style={{ color: '#666', fontStyle: 'italic' }}>
-              Click "Generate Insights" to get AI-powered analysis and recommendations.
-            </p>
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Revenue vs Expenses</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `$${(value/1000).toFixed(0)}K`} />
+                      <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="revenue" 
+                        stroke="#2563eb" 
+                        strokeWidth={2}
+                        name="Revenue"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="expense" 
+                        stroke="#dc2626" 
+                        strokeWidth={2}
+                        name="Expenses"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No chart data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Profit Trend</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {barChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={barChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis tickFormatter={(value) => `$${(value/1000).toFixed(0)}K`} />
+                      <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                      <Bar 
+                        dataKey="profit" 
+                        fill={metrics.profit_proxy >= 0 ? '#16a34a' : '#dc2626'}
+                        name="Profit"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    No profit data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Risk Flags */}
+          {dashboardData.risk_flags && dashboardData.risk_flags.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <AlertTriangle className="mr-2 h-5 w-5 text-yellow-600" />
+                  Risk Flags
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {dashboardData.risk_flags.map((flag, index) => (
+                    <div key={index} className="flex items-start space-x-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm">{flag}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
+
+          {/* AI Insights */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Brain className="mr-2 h-5 w-5 text-primary" />
+                AI Insights
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <select
+                  value={insightLanguage}
+                  onChange={(e) => setInsightLanguage(e.target.value)}
+                  className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="en">English</option>
+                  <option value="hi">हिंदी</option>
+                </select>
+                
+                <Button 
+                  onClick={generateInsights}
+                  disabled={insightLoading}
+                  className="min-w-[140px]"
+                >
+                  {insightLoading ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Generating...
+                    </div>
+                  ) : (
+                    <>
+                      <Brain className="mr-2 h-4 w-4" />
+                      Generate Insights
+                    </>
+                  )}
+                </Button>
+
+                <Button 
+                  onClick={downloadPDFReport}
+                  variant="outline"
+                  className="min-w-[140px]"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  PDF Report
+                </Button>
+              </div>
+              
+              {insights ? (
+                <div className="mt-4 p-4 bg-muted/50 rounded-lg border">
+                  <div className="whitespace-pre-line text-sm leading-relaxed">
+                    {insights}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 text-center text-muted-foreground">
+                  <Brain className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p>Click "Generate Insights" to get AI-powered analysis and recommendations</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Forecast Section */}
+          <Forecast businessId={businessId} language={language} />
         </div>
-      </div>
+      </main>
     </div>
   )
 }
-
-export default DashboardPage
