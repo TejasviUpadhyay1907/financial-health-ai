@@ -4,7 +4,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.db.database import get_db
 from app.models import AssessmentResult, Business, MonthlyFinancial
 from app.schemas.assessment import AssessmentResponse, ScoreBreakdown
 from app.services.analyzer import (

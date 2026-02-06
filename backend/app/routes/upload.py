@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.db.database import get_db
 from app.models import Business, MonthlyFinancial, Upload
 from app.schemas.upload import UploadResponse
 from app.services.parser import parse_upload

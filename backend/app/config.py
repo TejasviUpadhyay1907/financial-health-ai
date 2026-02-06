@@ -15,10 +15,10 @@ def get_settings():
 class Settings:
     """Load from env; use .env file locally."""
 
-    # Database (Supabase Postgres or any PostgreSQL)
+    # Database (SQLite for local dev, PostgreSQL for production)
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql://postgres:postgres@localhost:5432/financial_health"
+        "sqlite:///./app.db"
     )
 
     # LLM Provider Configuration
@@ -32,5 +32,5 @@ class Settings:
     ENV: str = os.getenv("ENV", "development")
     ALLOWED_ORIGINS: list[str] = os.getenv(
         "ALLOWED_ORIGINS",
-        "http://localhost:3000,http://localhost:5173,https://your-app.onrender.com"
+        "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
     ).split(",")

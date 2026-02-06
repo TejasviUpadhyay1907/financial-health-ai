@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS assessment_results (
     period_end DATE NOT NULL,
     health_score INTEGER NOT NULL CHECK (health_score >= 0 AND health_score <= 100),
     risk_level VARCHAR(20) NOT NULL CHECK (risk_level IN ('Low', 'Medium', 'High')),
-    metrics_json JSONB NOT NULL DEFAULT '{}',
-    risk_flags JSONB NOT NULL DEFAULT '[]',
+    metrics_json JSON NOT NULL DEFAULT '{}',
+    risk_flags JSON NOT NULL DEFAULT '[]',
     insights_text TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

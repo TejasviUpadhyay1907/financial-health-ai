@@ -38,7 +38,7 @@ def compute_metrics_and_risk(
 ) -> tuple[dict[str, Any], list[str], list[str], list[str]]:
     """
     From monthly_financials dataframe (canonical columns), compute:
-    - metrics dict for JSONB
+    - metrics dict for JSON
     - risk_flags list
     - top_positive_factors, top_negative_factors
     """
